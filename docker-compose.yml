@@ -1,0 +1,18 @@
+services:
+  voxly:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_PATH: /app/data/voxly.db
+      CORS_ORIGINS: http://localhost:8000,http://127.0.0.1:8000
+      STT_PROVIDER: ${STT_PROVIDER:-mock}
+      DEEPGRAM_API_KEY: ${DEEPGRAM_API_KEY:-}
+      DEEPGRAM_BASE_URL: ${DEEPGRAM_BASE_URL:-https://api.deepgram.com/v1/listen}
+      DEEPGRAM_MODEL: ${DEEPGRAM_MODEL:-nova-3}
+      DEEPGRAM_KEYTERMS: ${DEEPGRAM_KEYTERMS:-Wispr Flow,ROCm,Fireworks AI,Gemma,AMD Developer Cloud,Codex,FastAPI,SQLite}
+    volumes:
+      - voxly-data:/app/data
+
+volumes:
+  voxly-data:

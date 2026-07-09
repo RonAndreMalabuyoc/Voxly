@@ -1,0 +1,516 @@
+:root {
+  color-scheme: light;
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #17201d;
+  background: #eef2ef;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+button,
+textarea,
+input {
+  font: inherit;
+}
+
+button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 40px;
+  border: 1px solid #b8c4bd;
+  border-radius: 8px;
+  padding: 0 14px;
+  color: #17201d;
+  background: #ffffff;
+  cursor: pointer;
+  transition:
+    background 140ms ease,
+    border-color 140ms ease,
+    transform 140ms ease;
+}
+
+button:hover:not(:disabled) {
+  background: #f6faf8;
+  border-color: #819188;
+}
+
+button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.app-shell {
+  width: min(1440px, 100%);
+  min-height: 100vh;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.eyebrow {
+  margin: 0 0 3px;
+  color: #4b6b5e;
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+h1,
+h2,
+p {
+  margin: 0;
+}
+
+h1 {
+  font-size: clamp(1.55rem, 2vw, 2.15rem);
+  line-height: 1.1;
+}
+
+h2 {
+  font-size: 1rem;
+  line-height: 1.2;
+}
+
+.status-strip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 38px;
+  max-width: 60%;
+  border: 1px solid #c9d4ce;
+  border-radius: 8px;
+  padding: 0 12px;
+  background: #ffffff;
+  color: #45524c;
+  font-size: 0.9rem;
+  overflow: hidden;
+}
+
+.status-strip span:not(.status-dot) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.status-dot {
+  flex: 0 0 auto;
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: #95a39b;
+}
+
+.status-dot.live {
+  background: #d43f32;
+  box-shadow: 0 0 0 5px rgba(212, 63, 50, 0.12);
+}
+
+.provider {
+  color: #6c7a73;
+  border-left: 1px solid #d8e0dc;
+  padding-left: 10px;
+}
+
+.workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(280px, 0.7fr);
+  gap: 14px;
+  align-items: stretch;
+}
+
+.panel {
+  display: flex;
+  min-height: 0;
+  border: 1px solid #c9d4ce;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 10px 24px rgba(31, 49, 41, 0.06);
+}
+
+.capture-panel,
+.notepad-panel {
+  min-height: calc(100vh - 116px);
+  flex-direction: column;
+}
+
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 72px;
+  border-bottom: 1px solid #dde5e0;
+  padding: 14px;
+}
+
+.panel-header p {
+  margin-top: 4px;
+  color: #607067;
+  font-size: 0.88rem;
+}
+
+.icon-button {
+  flex: 0 0 auto;
+  width: 40px;
+  padding: 0;
+}
+
+.icon-button.danger {
+  color: #ffffff;
+  background: #b8322a;
+  border-color: #b8322a;
+}
+
+.record-button {
+  min-width: 156px;
+  color: #ffffff;
+  background: #176b55;
+  border-color: #176b55;
+  font-weight: 750;
+}
+
+.record-button:hover:not(:disabled) {
+  background: #0f5b47;
+  border-color: #0f5b47;
+}
+
+.record-button.stop {
+  background: #b8322a;
+  border-color: #b8322a;
+}
+
+.record-button.stop:hover:not(:disabled) {
+  background: #972820;
+  border-color: #972820;
+}
+
+.primary {
+  color: #ffffff;
+  background: #176b55;
+  border-color: #176b55;
+}
+
+.primary:hover:not(:disabled) {
+  background: #0f5b47;
+  border-color: #0f5b47;
+}
+
+textarea,
+input {
+  width: 100%;
+  border: 1px solid #c5d0ca;
+  border-radius: 8px;
+  background: #fbfdfc;
+  color: #17201d;
+  outline: none;
+}
+
+textarea:focus,
+input:focus {
+  border-color: #176b55;
+  box-shadow: 0 0 0 3px rgba(23, 107, 85, 0.12);
+}
+
+textarea {
+  flex: 1;
+  min-height: 280px;
+  resize: none;
+  padding: 14px;
+  line-height: 1.55;
+}
+
+.capture-panel > textarea,
+.notepad-panel > textarea {
+  border: 0;
+  border-radius: 0;
+  background: #ffffff;
+}
+
+.mic-monitor {
+  display: grid;
+  gap: 12px;
+  border-bottom: 1px solid #dde5e0;
+  padding: 12px;
+  background: #f8fbf9;
+}
+
+.mic-monitor.listening {
+  background: #fff7f6;
+}
+
+.mic-monitor-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.recording-state {
+  display: grid;
+  justify-items: end;
+  gap: 2px;
+  color: #53625b;
+  font-size: 0.88rem;
+}
+
+.recording-label {
+  color: #17201d;
+  font-weight: 750;
+}
+
+.level-meter {
+  display: grid;
+  grid-template-columns: repeat(18, minmax(3px, 1fr));
+  gap: 4px;
+  height: 18px;
+  align-items: end;
+}
+
+.level-meter span {
+  display: block;
+  height: 6px;
+  border-radius: 999px;
+  background: #d2ddd7;
+  transition:
+    height 80ms ease,
+    background 80ms ease;
+}
+
+.level-meter span.active {
+  height: 18px;
+  background: #176b55;
+}
+
+.mic-monitor.listening .level-meter span.active {
+  background: #d43f32;
+}
+
+.live-transcript {
+  display: grid;
+  gap: 6px;
+  min-height: 78px;
+  border: 1px solid #d9e3dd;
+  border-radius: 8px;
+  padding: 10px;
+  background: #ffffff;
+}
+
+.live-transcript span {
+  color: #5f7168;
+  font-size: 0.76rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.live-transcript p {
+  color: #17201d;
+  font-size: 1rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.mic-error {
+  border: 1px solid #e4aaa5;
+  border-radius: 8px;
+  padding: 9px 10px;
+  background: #fff0ee;
+  color: #842820;
+  font-size: 0.9rem;
+}
+
+.mic-notice {
+  border: 1px solid #c8d6de;
+  border-radius: 8px;
+  padding: 9px 10px;
+  background: #f1f7fa;
+  color: #344d5b;
+  font-size: 0.9rem;
+}
+
+.segment-log {
+  display: flex;
+  gap: 8px;
+  border-bottom: 1px solid #dde5e0;
+  padding: 10px 12px;
+  overflow-x: auto;
+  background: #ffffff;
+}
+
+.segment-item {
+  flex: 0 0 auto;
+  max-width: 280px;
+  border: 1px solid #bed3ca;
+  border-radius: 8px;
+  padding: 7px 9px;
+  background: #f3faf6;
+  color: #24312c;
+  font-size: 0.85rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.notepad {
+  font-size: 1.02rem;
+}
+
+.button-row {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  border-top: 1px solid #dde5e0;
+  padding: 12px;
+}
+
+.side-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: calc(100vh - 116px);
+}
+
+.compact-panel {
+  flex-direction: column;
+  min-height: 0;
+}
+
+.context-box {
+  min-height: 168px;
+  border: 0;
+  border-radius: 0;
+  background: #ffffff;
+}
+
+.vocab-form {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  padding: 12px;
+  border-bottom: 1px solid #dde5e0;
+}
+
+.vocab-form input {
+  min-height: 38px;
+  padding: 0 10px;
+}
+
+.vocab-form .icon-button {
+  justify-self: end;
+}
+
+.term-list {
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  gap: 8px;
+  max-height: 310px;
+  overflow: auto;
+  padding: 12px;
+}
+
+.term-pill {
+  max-width: 100%;
+  border: 1px solid #c4d3cc;
+  border-radius: 999px;
+  padding: 6px 10px;
+  background: #f4f8f6;
+  color: #24312c;
+  font-size: 0.84rem;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 1120px) {
+  .workspace {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .side-stack {
+    grid-column: 1 / -1;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .capture-panel,
+  .notepad-panel {
+    min-height: 560px;
+  }
+}
+
+@media (max-width: 760px) {
+  .app-shell {
+    padding: 12px;
+  }
+
+  .topbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .status-strip {
+    max-width: none;
+    width: 100%;
+  }
+
+  .workspace,
+  .side-stack {
+    grid-template-columns: 1fr;
+  }
+
+  .capture-panel,
+  .notepad-panel,
+  .side-stack {
+    min-height: 0;
+  }
+
+  .capture-panel,
+  .notepad-panel {
+    height: 480px;
+  }
+
+  .button-row {
+    flex-direction: column;
+  }
+
+  .button-row button {
+    width: 100%;
+  }
+
+  .mic-monitor-main {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .record-button {
+    width: 100%;
+  }
+
+  .recording-state {
+    justify-items: start;
+  }
+}
