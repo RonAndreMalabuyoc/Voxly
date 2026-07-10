@@ -2,15 +2,15 @@
 
 Voxly is a context-aware dictation app that turns rough speech transcripts into polished, accurate text using personal vocabulary and project context.
 
-This first version is intentionally small: a focused browser dictation notepad with microphone transcription, a raw transcript view, deterministic demo corrections, vocabulary editing, and SQLite-backed history. It does not call an LLM yet.
+This first version is intentionally small: a focused browser dictation notepad with microphone transcription, a raw transcript view, local Ollama-powered correction with deterministic fallback rules, vocabulary editing, and SQLite-backed history.
 
 ## What Works Now
 
 - Cross-browser microphone recording using the MediaRecorder API.
 - Backend audio transcription endpoint with a provider adapter.
 - Manual raw transcript fallback when no speech-to-text provider is configured.
-- Notepad area for appending raw or corrected dictation.
-- Rule-based demo corrections for hackathon vocabulary:
+- Notepad area for appending or replacing raw/corrected dictation.
+- Local AI correction through Ollama, with rule-based fallback corrections for hackathon vocabulary:
   - `whisper flow` -> `Wispr Flow`
   - `wisper flow` -> `Wispr Flow`
   - `rock em` -> `ROCm`
@@ -29,25 +29,39 @@ frontend/  React + Vite + TypeScript app
 
 ## Local Development
 
-Run the backend:
+Install dependencies once:
 
 ```bash
 cd backend
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
+cd ../frontend
+npm install
+```
+
+Run Voxly as one local app:
+
+```bash
+./scripts/run-local.sh
+```
+
+Open http://127.0.0.1:8000. FastAPI serves both the API and the built React frontend from the same server.
+
+For frontend-only development, you can still run the backend and Vite separately:
+
+```bash
+cd backend
+source .venv/bin/activate
 uvicorn app.main:app --reload --port 8000
 ```
 
-Run the frontend in another terminal:
-
 ```bash
 cd frontend
-npm install
 npm run dev
 ```
 
-Open http://localhost:5173.
+Open http://localhost:5173 for the Vite dev server.
 
 ## Environment
 
@@ -59,20 +73,30 @@ CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 STT_PROVIDER=mock
 DEEPGRAM_API_KEY=
 DEEPGRAM_MODEL= nova-3
+CORRECTION_PROVIDER=ollama
+OLLAMA_BASE_URL=http://127.0.0.1:11434
+OLLAMA_MODEL=gemma3:1b
 ```
 
 For real cross-browser speech-to-text, set:
 
 ```bash
 STT_PROVIDER= deepgram
-DEEPGRAM_API_KEY= 5629adfbe9dceee9c209461dd7c7c3fef0e0dac4
+DEEPGRAM_API_KEY=
 DEEPGRAM_MODEL= nova-3
 ```
 
 The frontend records audio with `MediaRecorder`, which is much more portable across Chrome, Brave, Firefox, and Edge than the browser Web Speech API. The backend then owns transcription through `/api/transcribe/audio`.
 Deepgram keyterms are loaded from the SQLite vocabulary table for each recording, so terms added in the vocabulary panel affect future transcriptions without restarting the app.
 
-Future hackathon builds can add a Gemma correction adapter behind the existing `/api/correct` endpoint. This MVP keeps LLM correction out of the running app so speech-to-text and the notepad workflow stay solid first.
+For local AI correction, install Ollama, pull a model, and keep Ollama running:
+
+```bash
+ollama pull gemma3:1b
+ollama run gemma3:1b
+```
+
+The `/api/correct` endpoint sends the raw transcript, context box, and SQLite vocabulary terms to Ollama. If Ollama is unavailable, Voxly falls back to deterministic correction rules so the demo still works.
 
 ## Docker
 

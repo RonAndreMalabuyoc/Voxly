@@ -10,7 +10,10 @@ services:
       DEEPGRAM_API_KEY: ${DEEPGRAM_API_KEY:-}
       DEEPGRAM_BASE_URL: ${DEEPGRAM_BASE_URL:-https://api.deepgram.com/v1/listen}
       DEEPGRAM_MODEL: ${DEEPGRAM_MODEL:-nova-3}
-      DEEPGRAM_KEYTERMS: ${DEEPGRAM_KEYTERMS:-Wispr Flow,ROCm,Fireworks AI,Gemma,AMD Developer Cloud,Codex,FastAPI,SQLite}
+      CORRECTION_PROVIDER: ${CORRECTION_PROVIDER:-mock}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-gemma3:1b}
+      OLLAMA_TIMEOUT_SECONDS: ${OLLAMA_TIMEOUT_SECONDS:-120}
     volumes:
       - voxly-data:/app/data
 

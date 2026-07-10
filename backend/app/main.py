@@ -22,12 +22,12 @@ from app.schemas import (
 
 settings = get_settings()
 db = Database(settings.database_file)
-correction_engine = build_correction_engine()
+correction_engine = build_correction_engine(settings)
 transcription_engine = build_transcription_engine(settings)
 
 app = FastAPI(
     title="Voxly API",
-    description="Context-aware dictation API with cross-browser audio capture and rule-based correction.",
+    description="Context-aware dictation API with cross-browser audio capture and local AI correction.",
     version="0.1.0",
 )
 

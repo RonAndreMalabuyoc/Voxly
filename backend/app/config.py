@@ -11,6 +11,10 @@ class Settings(BaseSettings):
     deepgram_api_key: str = ""
     deepgram_base_url: str = "https://api.deepgram.com/v1/listen"
     deepgram_model: str = "nova-3"
+    correction_provider: str = "ollama"
+    ollama_base_url: str = "http://127.0.0.1:11434"
+    ollama_model: str = "gemma3:1b"
+    ollama_timeout_seconds: float = 120
 
     model_config = SettingsConfigDict(
         env_file=(".env", "../.env"),
