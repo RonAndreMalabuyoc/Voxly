@@ -37,6 +37,7 @@ button {
   color: #17201d;
   background: #ffffff;
   cursor: pointer;
+  white-space: nowrap;
   transition:
     background 140ms ease,
     border-color 140ms ease,
@@ -394,9 +395,23 @@ textarea {
   padding: 12px;
 }
 
+.button-row > button {
+  flex: 0 0 auto;
+}
+
+.button-row > button:not(.icon-button) {
+  min-width: 118px;
+}
+
+.button-row > .primary {
+  min-width: 148px;
+}
+
 .segmented-control {
   display: inline-grid;
   grid-template-columns: 1fr 1fr;
+  flex: 0 0 216px;
+  margin-right: auto;
   min-width: 178px;
   min-height: 40px;
   border: 1px solid #b8c4bd;
