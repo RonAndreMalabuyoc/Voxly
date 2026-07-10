@@ -65,16 +65,21 @@ async def transcribe(request: TranscribeRequest) -> TranscribeResponse:
 
 
 @app.post("/api/transcribe/audio", response_model=TranscribeResponse)
-async def transcribe_audio(file: UploadFile = File(...)) -> TranscribeResponse:
+async def transcribe_audio(
+    file: UploadFile = File(...),
+    database: Database = Depends(get_db),
+) -> TranscribeResponse:
     audio = await file.read()
     if not audio:
         raise HTTPException(status_code=400, detail="Audio file is empty.")
 
+    keyterms = list_vocabulary_terms(database)
     try:
         transcript = await transcription_engine.transcribe_audio(
             audio=audio,
             content_type=file.content_type or "application/octet-stream",
             filename=file.filename or "recording.webm",
+            keyterms=keyterms,
         )
     except TranscriptionUnavailableError as exc:
         return TranscribeResponse(
@@ -94,7 +99,7 @@ async def transcribe_audio(file: UploadFile = File(...)) -> TranscribeResponse:
 
 @app.post("/api/correct", response_model=CorrectResponse)
 async def correct(request: CorrectRequest, database: Database = Depends(get_db)) -> CorrectResponse:
-    vocabulary = list_vocabulary(database)
+    vocabulary = list_vocabulary_items(database)
     corrected = await correction_engine.correct(request.text, request.context, vocabulary)
     with database.connect() as conn:
         conn.execute(
@@ -109,9 +114,19 @@ async def correct(request: CorrectRequest, database: Database = Depends(get_db))
 
 @app.get("/api/vocabulary", response_model=list[VocabularyItem])
 def list_vocabulary(database: Database = Depends(get_db)) -> list[VocabularyItem]:
+    return list_vocabulary_items(database)
+
+
+def list_vocabulary_items(database: Database) -> list[VocabularyItem]:
     with database.connect() as conn:
         rows = conn.execute("SELECT id, term, notes FROM vocabulary ORDER BY term").fetchall()
     return [VocabularyItem(**dict(row)) for row in rows]
+
+
+def list_vocabulary_terms(database: Database) -> list[str]:
+    with database.connect() as conn:
+        rows = conn.execute("SELECT term FROM vocabulary ORDER BY term").fetchall()
+    return [row["term"] for row in rows]
 
 
 @app.post("/api/vocabulary", response_model=VocabularyItem)

@@ -17,7 +17,13 @@ class TranscriptionEngine(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    async def transcribe_audio(self, audio: bytes, content_type: str, filename: str) -> str:
+    async def transcribe_audio(
+        self,
+        audio: bytes,
+        content_type: str,
+        filename: str,
+        keyterms: list[str] | None = None,
+    ) -> str:
         raise NotImplementedError
 
 
@@ -27,7 +33,13 @@ class ManualTranscriptEngine(TranscriptionEngine):
     async def transcribe(self, text: str, source: str) -> str:
         return " ".join(text.strip().split())
 
-    async def transcribe_audio(self, audio: bytes, content_type: str, filename: str) -> str:
+    async def transcribe_audio(
+        self,
+        audio: bytes,
+        content_type: str,
+        filename: str,
+        keyterms: list[str] | None = None,
+    ) -> str:
         raise TranscriptionUnavailableError(
             "Audio recording works in this browser, but no backend speech-to-text provider is configured. "
             "Set STT_PROVIDER=deepgram and DEEPGRAM_API_KEY to transcribe recorded audio."
@@ -43,7 +55,13 @@ class DeepgramTranscriptionEngine(TranscriptionEngine):
     async def transcribe(self, text: str, source: str) -> str:
         return " ".join(text.strip().split())
 
-    async def transcribe_audio(self, audio: bytes, content_type: str, filename: str) -> str:
+    async def transcribe_audio(
+        self,
+        audio: bytes,
+        content_type: str,
+        filename: str,
+        keyterms: list[str] | None = None,
+    ) -> str:
         if not self.settings.deepgram_api_key:
             raise TranscriptionUnavailableError("DEEPGRAM_API_KEY is missing.")
 
@@ -52,8 +70,7 @@ class DeepgramTranscriptionEngine(TranscriptionEngine):
             ("smart_format", "true"),
             ("punctuate", "true"),
         ]
-        keyterms = self.settings.deepgram_keyterm_list
-        params.extend(("keyterm", keyterm) for keyterm in keyterms)
+        params.extend(("keyterm", keyterm) for keyterm in keyterms or [])
         headers = {
             "Authorization": f"Token {self.settings.deepgram_api_key}",
             "Content-Type": content_type or "application/octet-stream",

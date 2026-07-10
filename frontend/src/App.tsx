@@ -1,16 +1,21 @@
-import { Clipboard, Mic, MicOff, Plus, Sparkles } from "lucide-react";
+import { Clipboard, Eraser, History, Mic, MicOff, Plus, Sparkles } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { ApiError, addVocabulary, correctText, getHealth, getVocabulary, transcribeAudio, transcribeBrowserText } from "./api";
-import type { HealthResponse, VocabularyItem } from "./types";
+import { ApiError, addVocabulary, correctText, getCorrections, getHealth, getVocabulary, transcribeAudio, transcribeBrowserText } from "./api";
+import type { CorrectionRecord, HealthResponse, VocabularyItem } from "./types";
 
 const STARTER_CONTEXT =
   "AMD Developer Hackathon ACT II project. Prefer terms like Wispr Flow, ROCm, Fireworks AI, Gemma, AMD Developer Cloud, Codex, FastAPI, and SQLite.";
 
+type OutputMode = "append" | "replace";
+
 function App() {
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [vocabulary, setVocabulary] = useState<VocabularyItem[]>([]);
+  const [corrections, setCorrections] = useState<CorrectionRecord[]>([]);
   const [rawTranscript, setRawTranscript] = useState("");
   const [notepad, setNotepad] = useState("");
+  const [outputMode, setOutputMode] = useState<OutputMode>("append");
+  const [latestCorrected, setLatestCorrected] = useState("");
   const [context, setContext] = useState(STARTER_CONTEXT);
   const [isListening, setIsListening] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
@@ -36,6 +41,7 @@ function App() {
   useEffect(() => {
     getHealth().then(setHealth).catch(() => setStatus("Backend is not reachable yet."));
     getVocabulary().then(setVocabulary).catch(() => undefined);
+    refreshCorrections();
   }, []);
 
   useEffect(() => () => stopAudioMonitor(), []);
@@ -70,11 +76,11 @@ function App() {
 
   async function appendRawToNotepad() {
     const result = await transcribeBrowserText(rawTranscript);
-    setNotepad((current) => appendText(current, result.transcript));
-    setStatus("Raw transcript appended");
+    setNotepad((current) => applyOutput(current, result.transcript, outputMode));
+    setStatus(outputMode === "append" ? "Raw transcript appended" : "Notepad replaced with raw transcript");
   }
 
-  async function correctAndAppend() {
+  async function correctAndSendToNotepad() {
     if (!rawTranscript.trim()) {
       setStatus("Add or dictate a raw transcript first.");
       return;
@@ -84,8 +90,10 @@ function App() {
     setStatus("Correcting with context");
     try {
       const result = await correctText(rawTranscript, context);
-      setNotepad((current) => appendText(current, result.corrected_text));
-      setStatus(`Corrected with ${result.correction_engine}`);
+      setLatestCorrected(result.corrected_text);
+      setNotepad((current) => applyOutput(current, result.corrected_text, outputMode));
+      setStatus(outputMode === "append" ? `Corrected with ${result.correction_engine}` : `Corrected and replaced notepad`);
+      await refreshCorrections();
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Correction failed");
     } finally {
@@ -108,7 +116,39 @@ function App() {
 
   async function copyNotepad() {
     await navigator.clipboard.writeText(notepad);
-    setStatus("Copied");
+    setStatus("Copied notepad");
+  }
+
+  async function copyLatestCorrected() {
+    await navigator.clipboard.writeText(latestCorrected);
+    setStatus("Copied latest correction");
+  }
+
+  function clearRawTranscript() {
+    setRawTranscript("");
+    setCapturedSegments([]);
+    setLatestCorrected("");
+    setMicError("");
+    setMicNotice("");
+    setStatus("Raw transcript cleared");
+  }
+
+  function clearNotepad() {
+    setNotepad("");
+    setStatus("Notepad cleared");
+  }
+
+  async function refreshCorrections() {
+    try {
+      setCorrections(await getCorrections());
+    } catch {
+      setCorrections([]);
+    }
+  }
+
+  async function copyCorrection(text: string) {
+    await navigator.clipboard.writeText(text);
+    setStatus("Copied correction");
   }
 
   async function startRecording() {
@@ -164,13 +204,15 @@ function App() {
     }
 
     setIsTranscribing(true);
-    setStatus("Uploading audio");
-    setInterimTranscript("Transcribing recorded audio...");
+    setStatus("Uploading recording");
+    setInterimTranscript("Uploading recorded audio...");
 
     try {
       const result = await transcribeAudio(audio);
+      setStatus("Recording uploaded");
+      setInterimTranscript("Recording uploaded. Waiting for transcript...");
       if (result.needs_manual_transcript) {
-        setMicNotice(`${result.message} Type what you said below, then use Correct + append.`);
+        setMicNotice(`${result.message} Type what you said below, then use Correct.`);
         setStatus("Audio captured");
         window.setTimeout(() => rawTranscriptRef.current?.focus(), 0);
         return;
@@ -184,11 +226,12 @@ function App() {
       }
       setRawTranscript((current) => appendText(current, transcript));
       setCapturedSegments((current) => [transcript, ...current].slice(0, 5));
+      setMicNotice("Recording uploaded and transcribed.");
       setStatus(`Transcribed with ${result.transcription_engine}`);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Audio transcription failed.";
       if (error instanceof ApiError && error.status === 501) {
-        setMicNotice(`${message} Type what you said below, then use Correct + append.`);
+        setMicNotice(`${message} Type what you said below, then use Correct.`);
         setStatus("Audio captured");
         window.setTimeout(() => rawTranscriptRef.current?.focus(), 0);
       } else {
@@ -265,9 +308,14 @@ function App() {
               <h2>Raw Transcript</h2>
               <p>{supportsRecording ? "Cross-browser audio recording is available." : "Audio recording is unavailable here."}</p>
             </div>
-            <button className={isListening ? "icon-button danger" : "icon-button"} onClick={toggleListening} title="Toggle microphone" disabled={isTranscribing}>
-              {isListening ? <MicOff size={20} /> : <Mic size={20} />}
-            </button>
+            <div className="panel-actions">
+              <button className="icon-button" onClick={clearRawTranscript} title="Clear raw transcript" disabled={!rawTranscript.trim() && !capturedSegments.length}>
+                <Eraser size={19} />
+              </button>
+              <button className={isListening ? "icon-button danger" : "icon-button"} onClick={toggleListening} title="Toggle microphone" disabled={isTranscribing}>
+                {isListening ? <MicOff size={20} /> : <Mic size={20} />}
+              </button>
+            </div>
           </div>
 
           <div className={isListening ? "mic-monitor listening" : "mic-monitor"}>
@@ -318,12 +366,23 @@ function App() {
           />
 
           <div className="button-row">
+            <div className="segmented-control" aria-label="Notepad output mode">
+              <button className={outputMode === "append" ? "active" : ""} onClick={() => setOutputMode("append")}>
+                Append
+              </button>
+              <button className={outputMode === "replace" ? "active" : ""} onClick={() => setOutputMode("replace")}>
+                Replace
+              </button>
+            </div>
             <button onClick={appendRawToNotepad} disabled={!rawTranscript.trim()}>
-              Append raw
+              Send raw
             </button>
-            <button className="primary" onClick={correctAndAppend} disabled={isCorrecting || !rawTranscript.trim()}>
+            <button className="primary" onClick={correctAndSendToNotepad} disabled={isCorrecting || !rawTranscript.trim()}>
               <Sparkles size={16} />
-              {isCorrecting ? "Correcting" : "Correct + append"}
+              {isCorrecting ? "Correcting" : "Correct"}
+            </button>
+            <button className="icon-button" onClick={copyLatestCorrected} title="Copy latest corrected output" disabled={!latestCorrected.trim()}>
+              <Clipboard size={18} />
             </button>
           </div>
         </div>
@@ -334,9 +393,14 @@ function App() {
               <h2>Notepad</h2>
               <p>Build up the final text here.</p>
             </div>
-            <button className="icon-button" onClick={copyNotepad} title="Copy notepad" disabled={!notepad.trim()}>
-              <Clipboard size={20} />
-            </button>
+            <div className="panel-actions">
+              <button className="icon-button" onClick={clearNotepad} title="Clear notepad" disabled={!notepad.trim()}>
+                <Eraser size={19} />
+              </button>
+              <button className="icon-button" onClick={copyNotepad} title="Copy notepad" disabled={!notepad.trim()}>
+                <Clipboard size={20} />
+              </button>
+            </div>
           </div>
           <textarea
             className="notepad"
@@ -395,6 +459,39 @@ function App() {
               ))}
             </div>
           </div>
+
+          <div className="panel compact-panel history-panel">
+            <div className="panel-header">
+              <div>
+                <h2>History</h2>
+                <p>{corrections.length} recent corrections</p>
+              </div>
+              <History size={20} />
+            </div>
+            <div className="history-list">
+              {corrections.length ? (
+                corrections.map((item) => (
+                  <article className="history-item" key={item.id}>
+                    <div className="history-meta">
+                      <span>{formatHistoryTime(item.created_at)}</span>
+                      <span>{item.provider}</span>
+                    </div>
+                    <p className="history-corrected">{item.corrected_text}</p>
+                    <p className="history-raw">{item.raw_text}</p>
+                    <div className="history-actions">
+                      <button onClick={() => setRawTranscript(item.raw_text)}>Raw</button>
+                      <button onClick={() => setNotepad((current) => appendText(current, item.corrected_text))}>Append</button>
+                      <button className="icon-button" onClick={() => copyCorrection(item.corrected_text)} title="Copy corrected text">
+                        <Clipboard size={16} />
+                      </button>
+                    </div>
+                  </article>
+                ))
+              ) : (
+                <p className="empty-state">Corrections will appear here after you use Correct.</p>
+              )}
+            </div>
+          </div>
         </aside>
       </section>
     </main>
@@ -409,6 +506,10 @@ function appendText(current: string, addition: string) {
   return current.trim() ? `${current.trim()}\n\n${next}` : next;
 }
 
+function applyOutput(current: string, addition: string, mode: OutputMode) {
+  return mode === "replace" ? addition.trim() : appendText(current, addition);
+}
+
 function formatTimer(seconds: number) {
   const minutes = Math.floor(seconds / 60);
   const remainingSeconds = seconds % 60;
@@ -418,6 +519,19 @@ function formatTimer(seconds: number) {
 function pickRecordingMimeType() {
   const candidates = ["audio/webm;codecs=opus", "audio/ogg;codecs=opus", "audio/webm", "audio/mp4"];
   return candidates.find((candidate) => MediaRecorder.isTypeSupported(candidate)) ?? "";
+}
+
+function formatHistoryTime(value: string) {
+  const date = new Date(value.replace(" ", "T"));
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+  return date.toLocaleString([], {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit"
+  });
 }
 
 function canRecordAudio() {

@@ -57,9 +57,8 @@ Copy `.env.example` to `.env` for local use.
 DATABASE_PATH=backend/data/voxly.db
 CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 STT_PROVIDER=mock
-DEEPGRAM_API_KEY= 5629adfbe9dceee9c209461dd7c7c3fef0e0dac4
+DEEPGRAM_API_KEY=
 DEEPGRAM_MODEL= nova-3
-DEEPGRAM_KEYTERMS=Wispr Flow,ROCm,Fireworks AI,Gemma,AMD Developer Cloud,Codex,FastAPI,SQLite
 ```
 
 For real cross-browser speech-to-text, set:
@@ -71,6 +70,7 @@ DEEPGRAM_MODEL= nova-3
 ```
 
 The frontend records audio with `MediaRecorder`, which is much more portable across Chrome, Brave, Firefox, and Edge than the browser Web Speech API. The backend then owns transcription through `/api/transcribe/audio`.
+Deepgram keyterms are loaded from the SQLite vocabulary table for each recording, so terms added in the vocabulary panel affect future transcriptions without restarting the app.
 
 Future hackathon builds can add a Gemma correction adapter behind the existing `/api/correct` endpoint. This MVP keeps LLM correction out of the running app so speech-to-text and the notepad workflow stay solid first.
 

@@ -1,4 +1,4 @@
-import type { CorrectResponse, HealthResponse, VocabularyItem } from "./types";
+import type { CorrectionRecord, CorrectResponse, HealthResponse, VocabularyItem } from "./types";
 
 export class ApiError extends Error {
   status: number;
@@ -30,6 +30,10 @@ export function getHealth() {
 
 export function getVocabulary() {
   return request<VocabularyItem[]>("/api/vocabulary");
+}
+
+export function getCorrections() {
+  return request<CorrectionRecord[]>("/api/corrections");
 }
 
 export function addVocabulary(term: string, notes: string) {

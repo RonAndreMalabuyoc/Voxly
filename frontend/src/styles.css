@@ -186,6 +186,12 @@ h2 {
   border-color: #b8322a;
 }
 
+.panel-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .record-button {
   min-width: 156px;
   color: #ffffff;
@@ -381,10 +387,45 @@ textarea {
 
 .button-row {
   display: flex;
+  align-items: center;
   justify-content: flex-end;
   gap: 10px;
   border-top: 1px solid #dde5e0;
   padding: 12px;
+}
+
+.segmented-control {
+  display: inline-grid;
+  grid-template-columns: 1fr 1fr;
+  min-width: 178px;
+  min-height: 40px;
+  border: 1px solid #b8c4bd;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #ffffff;
+}
+
+.segmented-control button {
+  min-height: 38px;
+  border: 0;
+  border-radius: 0;
+  padding: 0 12px;
+  background: transparent;
+  color: #53625b;
+  font-size: 0.9rem;
+}
+
+.segmented-control button + button {
+  border-left: 1px solid #d8e0dc;
+}
+
+.segmented-control button.active {
+  color: #ffffff;
+  background: #176b55;
+}
+
+.segmented-control button:hover:not(:disabled) {
+  border-color: transparent;
 }
 
 .side-stack {
@@ -444,6 +485,88 @@ textarea {
   overflow-wrap: anywhere;
 }
 
+.history-panel {
+  flex: 1;
+}
+
+.history-list {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  min-height: 220px;
+  max-height: 420px;
+  overflow: auto;
+  padding: 12px;
+}
+
+.history-item {
+  display: grid;
+  gap: 8px;
+  border: 1px solid #d2ddd7;
+  border-radius: 8px;
+  padding: 10px;
+  background: #fbfdfc;
+}
+
+.history-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  color: #607067;
+  font-size: 0.76rem;
+  font-weight: 750;
+  text-transform: uppercase;
+}
+
+.history-corrected,
+.history-raw {
+  display: -webkit-box;
+  overflow: hidden;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+}
+
+.history-corrected {
+  color: #17201d;
+  font-size: 0.92rem;
+  font-weight: 650;
+  -webkit-line-clamp: 3;
+}
+
+.history-raw {
+  color: #65756d;
+  font-size: 0.82rem;
+  -webkit-line-clamp: 2;
+}
+
+.history-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.history-actions button {
+  min-height: 32px;
+  padding: 0 10px;
+  font-size: 0.82rem;
+}
+
+.history-actions .icon-button {
+  width: 32px;
+  padding: 0;
+}
+
+.empty-state {
+  border: 1px dashed #c9d4ce;
+  border-radius: 8px;
+  padding: 12px;
+  color: #607067;
+  background: #fbfdfc;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
 @media (max-width: 1120px) {
   .workspace {
     grid-template-columns: 1fr 1fr;
@@ -495,9 +618,11 @@ textarea {
 
   .button-row {
     flex-direction: column;
+    align-items: stretch;
   }
 
-  .button-row button {
+  .button-row button,
+  .segmented-control {
     width: 100%;
   }
 
