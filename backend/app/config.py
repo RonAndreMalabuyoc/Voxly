@@ -1,3 +1,4 @@
+import os
 from functools import lru_cache
 from pathlib import Path
 
@@ -27,10 +28,14 @@ class Settings(BaseSettings):
 
     @property
     def database_file(self) -> Path:
+        if os.getenv("VERCEL") and self.database_path == "backend/data/voxly.db":
+            return Path("/tmp/voxly.db")
         return Path(self.database_path)
 
     @property
     def dictionary_file(self) -> Path:
+        if os.getenv("VERCEL") and self.dictionary_path == "backend/data/personal_dictionary.md":
+            return Path("/tmp/personal_dictionary.md")
         return Path(self.dictionary_path)
 
     @property

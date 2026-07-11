@@ -41,6 +41,7 @@ type TranscriptReview = {
 
 function App() {
   const [health, setHealth] = useState<HealthResponse | null>(null);
+  const [healthCheckFailed, setHealthCheckFailed] = useState(false);
   const [vocabulary, setVocabulary] = useState<VocabularyItem[]>([]);
   const [discoveredWords, setDiscoveredWords] = useState<DiscoveredWord[]>([]);
   const [corrections, setCorrections] = useState<CorrectionRecord[]>([]);
@@ -74,10 +75,33 @@ function App() {
   const supportsRecording = canRecordAudio();
 
   useEffect(() => {
-    getHealth().then(setHealth).catch(() => setStatus("Backend is not reachable yet."));
+    let cancelled = false;
+    let retryTimer: number | undefined;
+
+    const checkHealth = async () => {
+      try {
+        const result = await getHealth();
+        if (cancelled) return;
+        setHealth(result);
+        setHealthCheckFailed(false);
+        setStatus((current) => current === "Backend is not reachable yet." ? "Ready" : current);
+      } catch {
+        if (cancelled) return;
+        setHealthCheckFailed(true);
+        setStatus("Backend is not reachable yet.");
+        retryTimer = window.setTimeout(checkHealth, 4000);
+      }
+    };
+
+    checkHealth();
     getVocabulary().then(setVocabulary).catch(() => undefined);
     refreshDiscoveredWords();
     refreshCorrections();
+
+    return () => {
+      cancelled = true;
+      if (retryTimer !== undefined) window.clearTimeout(retryTimer);
+    };
   }, []);
 
   useEffect(() => () => stopAudioMonitor(), []);
@@ -464,8 +488,8 @@ function App() {
         <div className="status-strip">
           <span className={isListening ? "status-dot live" : "status-dot"} />
           <span>{status}</span>
-          <span className="provider">STT: {health?.transcription ?? "checking"}</span>
-          <span className="provider">Correction: {health?.correction_engine ?? "checking"}</span>
+          <span className="provider">STT: {health?.transcription ?? (healthCheckFailed ? "unavailable" : "checking")}</span>
+          <span className="provider">Correction: {health?.correction_engine ?? (healthCheckFailed ? "unavailable" : "checking")}</span>
         </div>
       </section>
 

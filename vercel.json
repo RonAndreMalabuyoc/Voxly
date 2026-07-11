@@ -11,10 +11,10 @@
     "backend": {
       "root": "backend/",
       "framework": "fastapi",
-      "entrypoint": "app.main:app",
+      "entrypoint": "index.py",
       "installCommand": "pip install -r requirements.txt",
       "functions": {
-        "app/main.py": {
+        "index.py": {
           "maxDuration": 60
         }
       }
