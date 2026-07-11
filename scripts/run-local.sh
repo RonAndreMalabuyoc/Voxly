@@ -30,4 +30,8 @@ echo "Starting Voxly at http://127.0.0.1:$PORT"
 echo "Ollama should already be running for local AI correction."
 cd "$ROOT_DIR/backend"
 source .venv/bin/activate
-exec uvicorn app.main:app --reload --host 127.0.0.1 --port "$PORT"
+if [ "${VOXLY_RELOAD:-0}" = "1" ]; then
+  exec uvicorn app.main:app --reload --host 127.0.0.1 --port "$PORT"
+fi
+
+exec uvicorn app.main:app --host 127.0.0.1 --port "$PORT"

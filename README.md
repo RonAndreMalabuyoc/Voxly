@@ -49,6 +49,8 @@ Run Voxly as one local app:
 
 Open http://127.0.0.1:8000. FastAPI serves both the API and the built React frontend from the same server.
 
+The one-app runner starts without file watching so it works cleanly in restricted local environments. Use `VOXLY_RELOAD=1 ./scripts/run-local.sh` only when you specifically want backend auto-reload during development.
+
 For frontend-only development, you can still run the backend and Vite separately:
 
 ```bash
