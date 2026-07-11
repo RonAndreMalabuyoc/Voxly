@@ -17,7 +17,10 @@ class TranscribeResponse(BaseModel):
     source: str
     transcription_engine: str
     needs_manual_transcript: bool = False
+    needs_review: bool = False
     message: str = ""
+    confidence: float | None = None
+    review_suggestion: str = ""
 
 
 class CorrectRequest(BaseModel):

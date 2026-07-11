@@ -64,6 +64,13 @@ export function discoverWords(text: string) {
   });
 }
 
+export function flagDiscoveredWord(term: string) {
+  return request<DiscoveredWord[]>("/api/dictionary/discovered", {
+    method: "POST",
+    body: JSON.stringify({ term, notes: "" })
+  });
+}
+
 export function acceptDiscoveredWord(id: number, term: string, notes: string) {
   return request<VocabularyItem>(`/api/dictionary/discovered/${id}/accept`, {
     method: "POST",
@@ -91,9 +98,10 @@ export function transcribeBrowserText(text: string) {
   });
 }
 
-export async function transcribeAudio(audio: Blob) {
+export async function transcribeAudio(audio: Blob, context = "") {
   const formData = new FormData();
   formData.append("file", audio, `voxly-recording.${audio.type.includes("ogg") ? "ogg" : "webm"}`);
+  formData.append("context", context);
 
   const response = await fetch("/api/transcribe/audio", {
     method: "POST",
@@ -110,7 +118,10 @@ export async function transcribeAudio(audio: Blob) {
     source: string;
     transcription_engine: string;
     needs_manual_transcript: boolean;
+    needs_review: boolean;
     message: string;
+    confidence: number | null;
+    review_suggestion: string;
   }>;
 }
 

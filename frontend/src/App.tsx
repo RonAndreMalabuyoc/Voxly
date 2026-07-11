@@ -1,4 +1,4 @@
-import { Check, Clipboard, Eraser, History, Mic, MicOff, Pencil, Plus, Sparkles, Trash2, X } from "lucide-react";
+import { Check, Clipboard, Eraser, Flag, History, Mic, MicOff, Pencil, Plus, Sparkles, Trash2, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import {
   acceptDiscoveredWord,
@@ -8,6 +8,7 @@ import {
   deleteVocabulary,
   discoverWords,
   dismissDiscoveredWord,
+  flagDiscoveredWord,
   getCorrections,
   getDiscoveredWords,
   getHealth,
@@ -32,6 +33,11 @@ type EditingDiscovered = {
   term: string;
   notes: string;
 };
+type TranscriptReview = {
+  transcript: string;
+  suggestion: string;
+  message: string;
+};
 
 function App() {
   const [health, setHealth] = useState<HealthResponse | null>(null);
@@ -52,6 +58,7 @@ function App() {
   const [audioLevel, setAudioLevel] = useState(0);
   const [micError, setMicError] = useState("");
   const [micNotice, setMicNotice] = useState("");
+  const [transcriptReview, setTranscriptReview] = useState<TranscriptReview | null>(null);
   const [status, setStatus] = useState("Ready");
   const [newTerm, setNewTerm] = useState("");
   const [newNote, setNewNote] = useState("");
@@ -158,7 +165,13 @@ function App() {
       setVocabulary(await getVocabulary());
       await refreshDiscoveredWords();
       setEditingDiscovered(null);
-      setStatus("Added to personal dictionary");
+      const originalTerm = discovered?.term ?? "";
+      const shouldUpdateTranscript = Boolean(originalTerm && originalTerm.toLowerCase() !== nextTerm.trim().toLowerCase());
+      if (shouldUpdateTranscript) {
+        setRawTranscript((current) => replaceApprovedTerm(current, originalTerm, nextTerm));
+        setCapturedSegments((current) => current.map((segment) => replaceApprovedTerm(segment, originalTerm, nextTerm)));
+      }
+      setStatus(shouldUpdateTranscript ? "Added to dictionary and updated transcript" : "Added to personal dictionary");
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Could not add discovered word");
     }
@@ -215,6 +228,7 @@ function App() {
     setRawTranscript("");
     setCapturedSegments([]);
     setLatestCorrected("");
+    setTranscriptReview(null);
     setMicError("");
     setMicNotice("");
     setStatus("Raw transcript cleared");
@@ -255,6 +269,38 @@ function App() {
     } catch {
       // Discovery should never block transcription or correction.
     }
+  }
+
+  async function flagRawSelection() {
+    const term = getSelectedRawTerm(rawTranscriptRef.current);
+    if (!term) {
+      setStatus("Select a word in the raw transcript to flag.");
+      return;
+    }
+
+    try {
+      const pending = await flagDiscoveredWord(term);
+      setDiscoveredWords(pending);
+      const flagged = pending.find((item) => item.term.toLowerCase() === term.toLowerCase());
+      if (flagged) {
+        setEditingDiscovered({ id: flagged.id, term: flagged.term, notes: "" });
+      }
+      setStatus("Flagged for dictionary review");
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Could not flag selected word");
+    }
+  }
+
+  function applyTranscriptReview() {
+    if (!transcriptReview) {
+      return;
+    }
+
+    setRawTranscript((current) => replaceLastOccurrence(current, transcriptReview.transcript, transcriptReview.suggestion));
+    setCapturedSegments((current) => current.map((segment) => (segment === transcriptReview.transcript ? transcriptReview.suggestion : segment)));
+    setTranscriptReview(null);
+    setMicNotice("Gemma suggestion applied. Edit manually if it still needs a human touch.");
+    setStatus("Transcript suggestion applied");
   }
 
   async function copyCorrection(text: string) {
@@ -319,7 +365,7 @@ function App() {
     setInterimTranscript("Uploading recorded audio...");
 
     try {
-      const result = await transcribeAudio(audio);
+      const result = await transcribeAudio(audio, context);
       setStatus("Recording uploaded");
       setInterimTranscript("Recording uploaded. Waiting for transcript...");
       if (result.needs_manual_transcript) {
@@ -337,7 +383,17 @@ function App() {
       }
       setRawTranscript((current) => appendText(current, transcript));
       setCapturedSegments((current) => [transcript, ...current].slice(0, 5));
-      setMicNotice("Recording uploaded and transcribed.");
+      if (result.needs_review && result.review_suggestion.trim()) {
+        setTranscriptReview({
+          transcript,
+          suggestion: result.review_suggestion.trim(),
+          message: result.message || "Gemma found a possible correction."
+        });
+        setMicNotice(result.message || "Recording uploaded. Gemma found a possible correction.");
+      } else {
+        setTranscriptReview(null);
+        setMicNotice("Recording uploaded and transcribed.");
+      }
       setStatus(`Transcribed with ${result.transcription_engine}`);
       await scanForDiscoveredWords(transcript);
     } catch (error) {
@@ -457,6 +513,22 @@ function App() {
 
             {micError ? <div className="mic-error">{micError}</div> : null}
             {micNotice && !micError ? <div className="mic-notice">{micNotice}</div> : null}
+            {transcriptReview && !micError ? (
+              <div className="review-card" aria-label="Gemma transcript review">
+                <span>Gemma suggestion</span>
+                <p>{transcriptReview.suggestion}</p>
+                <div className="review-actions">
+                  <button className="primary" onClick={applyTranscriptReview}>
+                    <Check size={15} />
+                    Use suggestion
+                  </button>
+                  <button onClick={() => setTranscriptReview(null)}>
+                    <X size={15} />
+                    Keep raw
+                  </button>
+                </div>
+              </div>
+            ) : null}
           </div>
 
           {capturedSegments.length > 0 ? (
@@ -492,6 +564,9 @@ function App() {
             <button className="primary" onClick={correctAndSendToNotepad} disabled={isCorrecting || !rawTranscript.trim()}>
               <Sparkles size={16} />
               {isCorrecting ? "Correcting" : "Correct"}
+            </button>
+            <button className="icon-button" onClick={flagRawSelection} title="Flag selected word for dictionary review" disabled={!rawTranscript.trim()}>
+              <Flag size={17} />
             </button>
             <button className="icon-button" onClick={copyLatestCorrected} title="Copy latest corrected output" disabled={!latestCorrected.trim()}>
               <Clipboard size={18} />
@@ -556,7 +631,7 @@ function App() {
               <input
                 value={newNote}
                 onChange={(event) => setNewNote(event.target.value)}
-                placeholder="Notes, or #stt for transcription boost"
+                placeholder="Notes, or #no-stt to avoid speech boost"
                 aria-label="Vocabulary notes"
               />
               <button className="icon-button" title="Add vocabulary term">
@@ -581,7 +656,7 @@ function App() {
                         <input
                           value={editingDiscovered.notes}
                           onChange={(event) => setEditingDiscovered((current) => (current ? { ...current, notes: event.target.value } : current))}
-                          placeholder="Notes, or #stt for transcription boost"
+                          placeholder="Notes, or #no-stt to avoid speech boost"
                           aria-label="Discovered word notes"
                         />
                         <div className="mini-actions">
@@ -734,6 +809,52 @@ function formatHistoryTime(value: string) {
     hour: "numeric",
     minute: "2-digit"
   });
+}
+
+function getSelectedRawTerm(textarea: HTMLTextAreaElement | null) {
+  if (!textarea) {
+    return "";
+  }
+
+  const value = textarea.value;
+  const selection = value.slice(textarea.selectionStart, textarea.selectionEnd).trim();
+  if (selection) {
+    return cleanFlaggedTerm(selection);
+  }
+
+  const before = value.slice(0, textarea.selectionStart);
+  const after = value.slice(textarea.selectionStart);
+  const left = before.match(/[A-Za-z0-9'_-]+$/)?.[0] ?? "";
+  const right = after.match(/^[A-Za-z0-9'_-]+/)?.[0] ?? "";
+  return cleanFlaggedTerm(`${left}${right}`);
+}
+
+function cleanFlaggedTerm(value: string) {
+  return value.replace(/\s+/g, " ").replace(/^[^A-Za-z0-9]+|[^A-Za-z0-9]+$/g, "").trim();
+}
+
+function replaceApprovedTerm(text: string, originalTerm: string, approvedTerm: string) {
+  const original = cleanFlaggedTerm(originalTerm);
+  const approved = approvedTerm.trim();
+  if (!text || !original || !approved) {
+    return text;
+  }
+
+  const phrasePattern = original.split(/\s+/).map(escapeRegExp).join("\\s+");
+  const pattern = new RegExp(`(^|[^A-Za-z0-9])(${phrasePattern})(?=$|[^A-Za-z0-9])`, "gi");
+  return text.replace(pattern, (_match, prefix) => `${prefix}${approved}`);
+}
+
+function replaceLastOccurrence(text: string, original: string, replacement: string) {
+  const index = text.lastIndexOf(original);
+  if (index === -1) {
+    return text;
+  }
+  return `${text.slice(0, index)}${replacement}${text.slice(index + original.length)}`;
+}
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function canRecordAudio() {

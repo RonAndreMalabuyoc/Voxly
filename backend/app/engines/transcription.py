@@ -1,8 +1,16 @@
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 
 import httpx
 
 from app.config import Settings
+
+
+@dataclass
+class TranscriptionResult:
+    transcript: str
+    confidence: float | None = None
+    alternatives: list[str] | None = None
 
 
 class TranscriptionUnavailableError(RuntimeError):
@@ -23,7 +31,7 @@ class TranscriptionEngine(ABC):
         content_type: str,
         filename: str,
         keyterms: list[str] | None = None,
-    ) -> str:
+    ) -> TranscriptionResult:
         raise NotImplementedError
 
 
@@ -39,7 +47,7 @@ class ManualTranscriptEngine(TranscriptionEngine):
         content_type: str,
         filename: str,
         keyterms: list[str] | None = None,
-    ) -> str:
+    ) -> TranscriptionResult:
         raise TranscriptionUnavailableError(
             "Audio recording works in this browser, but no backend speech-to-text provider is configured. "
             "Set STT_PROVIDER=deepgram and DEEPGRAM_API_KEY to transcribe recorded audio."
@@ -61,7 +69,7 @@ class DeepgramTranscriptionEngine(TranscriptionEngine):
         content_type: str,
         filename: str,
         keyterms: list[str] | None = None,
-    ) -> str:
+    ) -> TranscriptionResult:
         if not self.settings.deepgram_api_key:
             raise TranscriptionUnavailableError("DEEPGRAM_API_KEY is missing.")
 
@@ -103,11 +111,26 @@ class DeepgramTranscriptionEngine(TranscriptionEngine):
         data = response.json()
         channels = data.get("results", {}).get("channels", [])
         if not channels:
-            return ""
+            return TranscriptionResult(transcript="")
         alternatives = channels[0].get("alternatives", [])
         if not alternatives:
-            return ""
-        return alternatives[0].get("transcript", "").strip()
+            return TranscriptionResult(transcript="")
+        transcript = alternatives[0].get("transcript", "").strip()
+        confidence = alternatives[0].get("confidence")
+        if confidence is None:
+            confidence = average_word_confidence(alternatives[0].get("words", []))
+        return TranscriptionResult(
+            transcript=transcript,
+            confidence=confidence,
+            alternatives=[alternative.get("transcript", "").strip() for alternative in alternatives if alternative.get("transcript", "").strip()],
+        )
+
+
+def average_word_confidence(words: list[dict]) -> float | None:
+    confidences = [word.get("confidence") for word in words if isinstance(word.get("confidence"), (int, float))]
+    if not confidences:
+        return None
+    return sum(confidences) / len(confidences)
 
 
 def build_transcription_engine(settings: Settings) -> TranscriptionEngine:

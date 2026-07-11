@@ -359,6 +359,41 @@ textarea {
   font-size: 0.9rem;
 }
 
+.review-card {
+  display: grid;
+  gap: 8px;
+  border: 1px solid #bed3ca;
+  border-radius: 8px;
+  padding: 10px;
+  background: #f8fbfa;
+}
+
+.review-card span {
+  color: #5f7168;
+  font-size: 0.76rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.review-card p {
+  color: #17201d;
+  font-size: 0.95rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.review-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.review-actions button {
+  min-height: 34px;
+  padding: 0 10px;
+  font-size: 0.82rem;
+}
+
 .segment-log {
   display: flex;
   gap: 8px;

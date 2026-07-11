@@ -91,9 +91,12 @@ DEEPGRAM_LANGUAGE=en
 ```
 
 The frontend records audio with `MediaRecorder`, which is much more portable across Chrome, Brave, Firefox, and Edge than the browser Web Speech API. The backend then owns transcription through `/api/transcribe/audio`.
-Personal dictionary terms are correction hints by default. To intentionally boost a term during Deepgram transcription, add `#stt`, `deepgram`, or `transcription` in that term's notes.
+Personal dictionary terms are sent to Deepgram as speech hints by default, making transcription more aggressive about user-saved vocabulary. Voxly also builds likely name-pair hints, so terms like `Iudex` and `Neuvillette` can be sent together as `Iudex Neuvillette`. Add `#no-stt` in a term's notes to keep that term correction-only.
 
 For accent or code-switching issues, tune `DEEPGRAM_LANGUAGE`. Use `en` for general English, a specific supported language code for another language, or `multi` when the speaker commonly mixes languages.
+The Context box is also sent with audio uploads as lightweight transcription hints. For French or Spanish vocabulary, add a short labeled line such as `French: monsieur, Fontaine, Iudex` or `Spanish: gracias, señor, mañana`.
+
+After Deepgram transcribes audio, Voxly asks Gemma to review the transcript against the context and personal dictionary. If Gemma disagrees with Deepgram or Deepgram reports low confidence, the app shows a review suggestion that can be applied or ignored. Gemma does not listen to audio directly in this local Ollama setup.
 
 For local AI correction, install Ollama, pull a model, and keep Ollama running:
 

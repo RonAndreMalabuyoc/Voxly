@@ -110,7 +110,7 @@ class MarkdownDictionary:
 
     def list_transcription_keyterms(self) -> list[str]:
         terms, _ = self._read()
-        return [term for term, notes in terms if is_transcription_keyterm(notes)]
+        return [term for term, notes in terms if not is_transcription_disabled(notes)]
 
     def add_term(self, term: str, notes: str = "") -> VocabularyItem:
         clean_term = normalize_display_term(term)
@@ -171,6 +171,20 @@ class MarkdownDictionary:
             discovered.append(candidate)
 
         if discovered:
+            self._write(terms, sorted(pending, key=str.lower))
+
+        return self.list_pending()
+
+    def flag_pending(self, term: str) -> list[DiscoveredWord]:
+        clean_term = normalize_display_term(term)
+        if not clean_term:
+            raise ValueError("Term is required.")
+
+        terms, pending = self._read()
+        if any(existing.lower() == clean_term.lower() for existing, _ in terms):
+            raise ValueError("Term is already in the personal dictionary.")
+        if not any(existing.lower() == clean_term.lower() for existing in pending):
+            pending.append(clean_term)
             self._write(terms, sorted(pending, key=str.lower))
 
         return self.list_pending()
@@ -289,6 +303,11 @@ def should_discover(candidate: str) -> bool:
 def is_transcription_keyterm(notes: str) -> bool:
     normalized = notes.lower()
     return "#stt" in normalized or "deepgram" in normalized or "transcription" in normalized
+
+
+def is_transcription_disabled(notes: str) -> bool:
+    normalized = notes.lower()
+    return "#no-stt" in normalized or "no deepgram" in normalized or "correction only" in normalized
 
 
 def sort_terms(terms: list[tuple[str, str]]) -> list[tuple[str, str]]:
