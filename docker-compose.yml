@@ -1,14 +1,18 @@
 services:
   voxly:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: voxly-app
+    restart: unless-stopped
     ports:
       - "8000:8000"
     environment:
       DATABASE_PATH: /app/data/voxly.db
       DICTIONARY_PATH: /app/data/personal_dictionary.md
-      CORS_ORIGINS: http://localhost:8000,http://127.0.0.1:8000
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8000,http://127.0.0.1:8000}
       STT_PROVIDER: ${STT_PROVIDER:-mock}
-      DEEPGRAM_API_KEY: ${DEEPGRAM_API_KEY:-}
+      DEEPGRAM_API_KEY: ${DEEPGRAM_API_KEY}
       DEEPGRAM_BASE_URL: ${DEEPGRAM_BASE_URL:-https://api.deepgram.com/v1/listen}
       DEEPGRAM_MODEL: ${DEEPGRAM_MODEL:-nova-3}
       DEEPGRAM_LANGUAGE: ${DEEPGRAM_LANGUAGE:-en}
@@ -19,6 +23,13 @@ services:
       OLLAMA_TIMEOUT_SECONDS: ${OLLAMA_TIMEOUT_SECONDS:-120}
     volumes:
       - voxly-data:/app/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8000/docs', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
 
 volumes:
   voxly-data:
+    driver: local
