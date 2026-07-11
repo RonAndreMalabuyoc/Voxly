@@ -70,19 +70,36 @@ class DeepgramTranscriptionEngine(TranscriptionEngine):
             ("smart_format", "true"),
             ("punctuate", "true"),
         ]
+        if self.settings.deepgram_language.strip():
+            params.append(("language", self.settings.deepgram_language.strip()))
         params.extend(("keyterm", keyterm) for keyterm in keyterms or [])
         headers = {
             "Authorization": f"Token {self.settings.deepgram_api_key}",
             "Content-Type": content_type or "application/octet-stream",
         }
-        async with httpx.AsyncClient(timeout=60) as client:
-            response = await client.post(
-                self.settings.deepgram_base_url,
-                params=params,
-                headers=headers,
-                content=audio,
-            )
-        response.raise_for_status()
+        try:
+            async with httpx.AsyncClient(timeout=self.settings.deepgram_timeout_seconds) as client:
+                response = await client.post(
+                    self.settings.deepgram_base_url,
+                    params=params,
+                    headers=headers,
+                    content=audio,
+                )
+            response.raise_for_status()
+        except httpx.TimeoutException as exc:
+            raise TranscriptionUnavailableError(
+                "Deepgram transcription timed out. Try a shorter recording or check your internet connection."
+            ) from exc
+        except httpx.ConnectError as exc:
+            raise TranscriptionUnavailableError(
+                "Voxly could not connect to Deepgram. Check your internet connection, then try again."
+            ) from exc
+        except httpx.HTTPStatusError as exc:
+            detail = exc.response.text[:240].strip()
+            message = f"Deepgram returned {exc.response.status_code}."
+            if detail:
+                message = f"{message} {detail}"
+            raise TranscriptionUnavailableError(message) from exc
         data = response.json()
         channels = data.get("results", {}).get("channels", [])
         if not channels:

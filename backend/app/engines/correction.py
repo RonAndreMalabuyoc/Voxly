@@ -94,7 +94,9 @@ def build_system_prompt() -> str:
         "You are Voxly's correction engine for dictated text. "
         "Correct likely speech-to-text mistakes, punctuation, capitalization, and specialized terms. "
         "Use the project context only to resolve ambiguous wording. "
-        "Prefer exact vocabulary terms when they match the speaker's intent. "
+        "Treat personal dictionary terms as low-priority hints, not mandatory replacements. "
+        "Use a dictionary term only when the sentence context clearly supports that exact term. "
+        "If the raw transcript already makes sense, keep it instead of replacing it with a similar-sounding dictionary term. "
         "Preserve the original meaning and do not add new facts, claims, names, or ideas. "
         "Return only the corrected text with no labels, markdown, explanations, or alternatives."
     )
@@ -110,7 +112,8 @@ def build_user_prompt(text: str, draft: str, context: str, vocabulary: list[Voca
         f"Raw transcript:\n{text}\n\n"
         f"Rule-normalized draft:\n{draft}\n\n"
         "Use the draft as the baseline. Make only necessary polish edits. "
-        "Do not reintroduce phonetic spellings from the raw transcript.\n\n"
+        "Do not reintroduce phonetic spellings from the raw transcript. "
+        "Do not swap in a personal dictionary term merely because it sounds similar; the replacement must make sense in the sentence.\n\n"
         "Corrected text:"
     )
 

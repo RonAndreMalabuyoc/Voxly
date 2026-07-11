@@ -5,11 +5,14 @@ services:
       - "8000:8000"
     environment:
       DATABASE_PATH: /app/data/voxly.db
+      DICTIONARY_PATH: /app/data/personal_dictionary.md
       CORS_ORIGINS: http://localhost:8000,http://127.0.0.1:8000
       STT_PROVIDER: ${STT_PROVIDER:-mock}
       DEEPGRAM_API_KEY: ${DEEPGRAM_API_KEY:-}
       DEEPGRAM_BASE_URL: ${DEEPGRAM_BASE_URL:-https://api.deepgram.com/v1/listen}
       DEEPGRAM_MODEL: ${DEEPGRAM_MODEL:-nova-3}
+      DEEPGRAM_LANGUAGE: ${DEEPGRAM_LANGUAGE:-en}
+      DEEPGRAM_TIMEOUT_SECONDS: ${DEEPGRAM_TIMEOUT_SECONDS:-180}
       CORRECTION_PROVIDER: ${CORRECTION_PROVIDER:-mock}
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
       OLLAMA_MODEL: ${OLLAMA_MODEL:-gemma3:1b}

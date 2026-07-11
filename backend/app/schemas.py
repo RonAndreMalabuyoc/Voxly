@@ -42,6 +42,20 @@ class VocabularyCreate(BaseModel):
     notes: str = Field(default="", max_length=500)
 
 
+class VocabularyUpdate(BaseModel):
+    term: str = Field(min_length=1, max_length=120)
+    notes: str = Field(default="", max_length=500)
+
+
+class DiscoverRequest(BaseModel):
+    text: str = Field(default="", description="Text to scan for personal dictionary candidates.")
+
+
+class DiscoveredWord(BaseModel):
+    id: int
+    term: str
+
+
 class CorrectionRecord(BaseModel):
     id: int
     raw_text: str

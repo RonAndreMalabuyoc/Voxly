@@ -1,4 +1,4 @@
-import type { CorrectionRecord, CorrectResponse, HealthResponse, VocabularyItem } from "./types";
+import type { CorrectionRecord, CorrectResponse, DiscoveredWord, HealthResponse, VocabularyItem } from "./types";
 
 export class ApiError extends Error {
   status: number;
@@ -21,6 +21,10 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
     throw new ApiError(message || `Request failed with ${response.status}`, response.status);
   }
 
+  if (response.status === 204) {
+    return undefined as T;
+  }
+
   return response.json() as Promise<T>;
 }
 
@@ -32,8 +36,45 @@ export function getVocabulary() {
   return request<VocabularyItem[]>("/api/vocabulary");
 }
 
+export function updateVocabulary(id: number, term: string, notes: string) {
+  return request<VocabularyItem>(`/api/vocabulary/${id}`, {
+    method: "PUT",
+    body: JSON.stringify({ term, notes })
+  });
+}
+
+export function deleteVocabulary(id: number) {
+  return request<void>(`/api/vocabulary/${id}`, {
+    method: "DELETE"
+  });
+}
+
 export function getCorrections() {
   return request<CorrectionRecord[]>("/api/corrections");
+}
+
+export function getDiscoveredWords() {
+  return request<DiscoveredWord[]>("/api/dictionary/discovered");
+}
+
+export function discoverWords(text: string) {
+  return request<DiscoveredWord[]>("/api/dictionary/discover", {
+    method: "POST",
+    body: JSON.stringify({ text })
+  });
+}
+
+export function acceptDiscoveredWord(id: number, term: string, notes: string) {
+  return request<VocabularyItem>(`/api/dictionary/discovered/${id}/accept`, {
+    method: "POST",
+    body: JSON.stringify({ term, notes })
+  });
+}
+
+export function dismissDiscoveredWord(id: number) {
+  return request<void>(`/api/dictionary/discovered/${id}`, {
+    method: "DELETE"
+  });
 }
 
 export function addVocabulary(term: string, notes: string) {

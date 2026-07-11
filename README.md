@@ -10,6 +10,7 @@ This first version is intentionally small: a focused browser dictation notepad w
 - Backend audio transcription endpoint with a provider adapter.
 - Manual raw transcript fallback when no speech-to-text provider is configured.
 - Notepad area for appending or replacing raw/corrected dictation.
+- Markdown-backed personal dictionary with discovered-word review, editing, and deletion.
 - Local AI correction through Ollama, with rule-based fallback corrections for hackathon vocabulary:
   - `whisper flow` -> `Wispr Flow`
   - `wisper flow` -> `Wispr Flow`
@@ -17,7 +18,7 @@ This first version is intentionally small: a focused browser dictation notepad w
   - `fireworks ay eye` -> `Fireworks AI`
   - `jemma` -> `Gemma`
 - FastAPI backend with text/audio transcription and correction endpoints.
-- SQLite storage for vocabulary and correction history.
+- SQLite storage for correction history.
 - Dockerfile and docker-compose for containerized demo deployment.
 
 ## Project Structure
@@ -69,10 +70,12 @@ Copy `.env.example` to `.env` for local use.
 
 ```bash
 DATABASE_PATH=backend/data/voxly.db
+DICTIONARY_PATH=backend/data/personal_dictionary.md
 CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 STT_PROVIDER=mock
 DEEPGRAM_API_KEY=
 DEEPGRAM_MODEL= nova-3
+DEEPGRAM_LANGUAGE=en
 CORRECTION_PROVIDER=ollama
 OLLAMA_BASE_URL=http://127.0.0.1:11434
 OLLAMA_MODEL=gemma3:1b
@@ -84,10 +87,13 @@ For real cross-browser speech-to-text, set:
 STT_PROVIDER= deepgram
 DEEPGRAM_API_KEY=
 DEEPGRAM_MODEL= nova-3
+DEEPGRAM_LANGUAGE=en
 ```
 
 The frontend records audio with `MediaRecorder`, which is much more portable across Chrome, Brave, Firefox, and Edge than the browser Web Speech API. The backend then owns transcription through `/api/transcribe/audio`.
-Deepgram keyterms are loaded from the SQLite vocabulary table for each recording, so terms added in the vocabulary panel affect future transcriptions without restarting the app.
+Personal dictionary terms are correction hints by default. To intentionally boost a term during Deepgram transcription, add `#stt`, `deepgram`, or `transcription` in that term's notes.
+
+For accent or code-switching issues, tune `DEEPGRAM_LANGUAGE`. Use `en` for general English, a specific supported language code for another language, or `multi` when the speaker commonly mixes languages.
 
 For local AI correction, install Ollama, pull a model, and keep Ollama running:
 
@@ -96,7 +102,7 @@ ollama pull gemma3:1b
 ollama run gemma3:1b
 ```
 
-The `/api/correct` endpoint sends the raw transcript, context box, and SQLite vocabulary terms to Ollama. If Ollama is unavailable, Voxly falls back to deterministic correction rules so the demo still works.
+The `/api/correct` endpoint sends the raw transcript, context box, and markdown dictionary terms to Ollama. If Ollama is unavailable, Voxly falls back to deterministic correction rules so the demo still works.
 
 ## Docker
 

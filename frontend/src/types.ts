@@ -10,6 +10,11 @@ export type VocabularyItem = {
   notes: string;
 };
 
+export type DiscoveredWord = {
+  id: number;
+  term: string;
+};
+
 export type CorrectResponse = {
   raw_text: string;
   corrected_text: string;

@@ -6,6 +6,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.config import get_settings
 from app.database import Database
+from app.dictionary import MarkdownDictionary
 from app.engines.correction import build_correction_engine
 from app.engines.transcription import TranscriptionUnavailableError, build_transcription_engine
 from app.schemas import (
@@ -13,15 +14,19 @@ from app.schemas import (
     CorrectionRecord,
     CorrectRequest,
     CorrectResponse,
+    DiscoverRequest,
+    DiscoveredWord,
     HealthResponse,
     TranscribeRequest,
     TranscribeResponse,
     VocabularyCreate,
     VocabularyItem,
+    VocabularyUpdate,
 )
 
 settings = get_settings()
 db = Database(settings.database_file)
+dictionary = MarkdownDictionary(settings.dictionary_file)
 correction_engine = build_correction_engine(settings)
 transcription_engine = build_transcription_engine(settings)
 
@@ -43,10 +48,15 @@ app.add_middleware(
 @app.on_event("startup")
 def startup() -> None:
     db.init()
+    dictionary.init(list_vocabulary_seed_items(db))
 
 
 def get_db() -> Database:
     return db
+
+
+def get_dictionary() -> MarkdownDictionary:
+    return dictionary
 
 
 @app.get("/api/health", response_model=HealthResponse)
@@ -67,13 +77,13 @@ async def transcribe(request: TranscribeRequest) -> TranscribeResponse:
 @app.post("/api/transcribe/audio", response_model=TranscribeResponse)
 async def transcribe_audio(
     file: UploadFile = File(...),
-    database: Database = Depends(get_db),
+    personal_dictionary: MarkdownDictionary = Depends(get_dictionary),
 ) -> TranscribeResponse:
     audio = await file.read()
     if not audio:
         raise HTTPException(status_code=400, detail="Audio file is empty.")
 
-    keyterms = list_vocabulary_terms(database)
+    keyterms = personal_dictionary.list_transcription_keyterms()
     try:
         transcript = await transcription_engine.transcribe_audio(
             audio=audio,
@@ -98,8 +108,12 @@ async def transcribe_audio(
 
 
 @app.post("/api/correct", response_model=CorrectResponse)
-async def correct(request: CorrectRequest, database: Database = Depends(get_db)) -> CorrectResponse:
-    vocabulary = list_vocabulary_items(database)
+async def correct(
+    request: CorrectRequest,
+    database: Database = Depends(get_db),
+    personal_dictionary: MarkdownDictionary = Depends(get_dictionary),
+) -> CorrectResponse:
+    vocabulary = personal_dictionary.list_terms()
     corrected = await correction_engine.correct(request.text, request.context, vocabulary)
     with database.connect() as conn:
         conn.execute(
@@ -113,35 +127,88 @@ async def correct(request: CorrectRequest, database: Database = Depends(get_db))
 
 
 @app.get("/api/vocabulary", response_model=list[VocabularyItem])
-def list_vocabulary(database: Database = Depends(get_db)) -> list[VocabularyItem]:
-    return list_vocabulary_items(database)
+def list_vocabulary(personal_dictionary: MarkdownDictionary = Depends(get_dictionary)) -> list[VocabularyItem]:
+    return personal_dictionary.list_terms()
 
 
-def list_vocabulary_items(database: Database) -> list[VocabularyItem]:
+def list_vocabulary_seed_items(database: Database) -> list[tuple[str, str]]:
     with database.connect() as conn:
-        rows = conn.execute("SELECT id, term, notes FROM vocabulary ORDER BY term").fetchall()
-    return [VocabularyItem(**dict(row)) for row in rows]
-
-
-def list_vocabulary_terms(database: Database) -> list[str]:
-    with database.connect() as conn:
-        rows = conn.execute("SELECT term FROM vocabulary ORDER BY term").fetchall()
-    return [row["term"] for row in rows]
+        rows = conn.execute("SELECT term, notes FROM vocabulary ORDER BY term").fetchall()
+    return [(row["term"], row["notes"]) for row in rows]
 
 
 @app.post("/api/vocabulary", response_model=VocabularyItem)
-def create_vocabulary(item: VocabularyCreate, database: Database = Depends(get_db)) -> VocabularyItem:
+def create_vocabulary(
+    item: VocabularyCreate,
+    personal_dictionary: MarkdownDictionary = Depends(get_dictionary),
+) -> VocabularyItem:
     try:
-        with database.connect() as conn:
-            cursor = conn.execute(
-                "INSERT INTO vocabulary (term, notes) VALUES (?, ?)",
-                (item.term.strip(), item.notes.strip()),
-            )
-            row_id = cursor.lastrowid
-            row = conn.execute("SELECT id, term, notes FROM vocabulary WHERE id = ?", (row_id,)).fetchone()
+        return personal_dictionary.add_term(item.term, item.notes)
     except Exception as exc:
         raise HTTPException(status_code=409, detail="Vocabulary term already exists or could not be saved.") from exc
-    return VocabularyItem(**dict(row))
+
+
+@app.put("/api/vocabulary/{item_id}", response_model=VocabularyItem)
+def update_vocabulary(
+    item_id: int,
+    item: VocabularyUpdate,
+    personal_dictionary: MarkdownDictionary = Depends(get_dictionary),
+) -> VocabularyItem:
+    try:
+        return personal_dictionary.update_term(item_id, item.term, item.notes)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="Vocabulary term was not found.") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@app.delete("/api/vocabulary/{item_id}", status_code=204)
+def delete_vocabulary(
+    item_id: int,
+    personal_dictionary: MarkdownDictionary = Depends(get_dictionary),
+) -> None:
+    try:
+        personal_dictionary.delete_term(item_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="Vocabulary term was not found.") from exc
+
+
+@app.get("/api/dictionary/discovered", response_model=list[DiscoveredWord])
+def list_discovered_words(personal_dictionary: MarkdownDictionary = Depends(get_dictionary)) -> list[DiscoveredWord]:
+    return personal_dictionary.list_pending()
+
+
+@app.post("/api/dictionary/discover", response_model=list[DiscoveredWord])
+def discover_words(
+    request: DiscoverRequest,
+    personal_dictionary: MarkdownDictionary = Depends(get_dictionary),
+) -> list[DiscoveredWord]:
+    return personal_dictionary.discover(request.text)
+
+
+@app.post("/api/dictionary/discovered/{item_id}/accept", response_model=VocabularyItem)
+def accept_discovered_word(
+    item_id: int,
+    item: VocabularyCreate,
+    personal_dictionary: MarkdownDictionary = Depends(get_dictionary),
+) -> VocabularyItem:
+    try:
+        return personal_dictionary.accept_pending(item_id, item.term, item.notes)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="Discovered word was not found.") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@app.delete("/api/dictionary/discovered/{item_id}", status_code=204)
+def dismiss_discovered_word(
+    item_id: int,
+    personal_dictionary: MarkdownDictionary = Depends(get_dictionary),
+) -> None:
+    try:
+        personal_dictionary.dismiss_pending(item_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="Discovered word was not found.") from exc
 
 
 @app.get("/api/corrections", response_model=list[CorrectionRecord])

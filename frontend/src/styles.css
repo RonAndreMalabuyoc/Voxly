@@ -480,24 +480,99 @@ textarea {
 }
 
 .term-list {
-  display: flex;
-  flex-wrap: wrap;
-  align-content: flex-start;
+  display: grid;
+  align-content: start;
   gap: 8px;
   max-height: 310px;
   overflow: auto;
   padding: 12px;
 }
 
-.term-pill {
-  max-width: 100%;
+.dictionary-subhead {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  color: #607067;
+  font-size: 0.76rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.discovered-list {
+  display: grid;
+  gap: 8px;
+  border-bottom: 1px solid #dde5e0;
+  padding: 12px;
+  background: #fbfdfc;
+}
+
+.discovered-item,
+.dictionary-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
   border: 1px solid #c4d3cc;
-  border-radius: 999px;
-  padding: 6px 10px;
+  border-radius: 8px;
+  padding: 8px;
   background: #f4f8f6;
   color: #24312c;
   font-size: 0.84rem;
+}
+
+.discovered-item:has(input) {
+  display: grid;
+  grid-template-columns: 1fr auto;
+}
+
+.discovered-item input {
+  min-height: 34px;
+  padding: 0 9px;
+}
+
+.discovered-item input:first-child {
+  grid-column: 1 / -1;
+}
+
+.dictionary-item {
+  background: #ffffff;
+}
+
+.dictionary-item input {
+  min-height: 34px;
+  padding: 0 9px;
+}
+
+.dictionary-copy {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.dictionary-copy span,
+.discovered-item span {
+  font-weight: 700;
   overflow-wrap: anywhere;
+}
+
+.dictionary-copy small {
+  color: #65756d;
+  font-size: 0.76rem;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.dictionary-actions,
+.mini-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 6px;
+}
+
+.dictionary-actions .icon-button,
+.mini-actions .icon-button {
+  width: 30px;
+  min-height: 30px;
 }
 
 .history-panel {

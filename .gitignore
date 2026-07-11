@@ -7,5 +7,5 @@ __pycache__/
 .env
 .DS_Store
 backend/data/
+backend/backend/data/
 frontend/dist/
-

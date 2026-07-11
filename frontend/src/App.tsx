@@ -1,16 +1,42 @@
-import { Clipboard, Eraser, History, Mic, MicOff, Plus, Sparkles } from "lucide-react";
+import { Check, Clipboard, Eraser, History, Mic, MicOff, Pencil, Plus, Sparkles, Trash2, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { ApiError, addVocabulary, correctText, getCorrections, getHealth, getVocabulary, transcribeAudio, transcribeBrowserText } from "./api";
-import type { CorrectionRecord, HealthResponse, VocabularyItem } from "./types";
+import {
+  acceptDiscoveredWord,
+  addVocabulary,
+  ApiError,
+  correctText,
+  deleteVocabulary,
+  discoverWords,
+  dismissDiscoveredWord,
+  getCorrections,
+  getDiscoveredWords,
+  getHealth,
+  getVocabulary,
+  transcribeAudio,
+  transcribeBrowserText,
+  updateVocabulary
+} from "./api";
+import type { CorrectionRecord, DiscoveredWord, HealthResponse, VocabularyItem } from "./types";
 
 const STARTER_CONTEXT =
   "AMD Developer Hackathon ACT II project. Prefer terms like Wispr Flow, ROCm, Fireworks AI, Gemma, AMD Developer Cloud, Codex, FastAPI, and SQLite.";
 
 type OutputMode = "append" | "replace";
+type EditingVocabulary = {
+  id: number;
+  term: string;
+  notes: string;
+};
+type EditingDiscovered = {
+  id: number;
+  term: string;
+  notes: string;
+};
 
 function App() {
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [vocabulary, setVocabulary] = useState<VocabularyItem[]>([]);
+  const [discoveredWords, setDiscoveredWords] = useState<DiscoveredWord[]>([]);
   const [corrections, setCorrections] = useState<CorrectionRecord[]>([]);
   const [rawTranscript, setRawTranscript] = useState("");
   const [notepad, setNotepad] = useState("");
@@ -29,6 +55,8 @@ function App() {
   const [status, setStatus] = useState("Ready");
   const [newTerm, setNewTerm] = useState("");
   const [newNote, setNewNote] = useState("");
+  const [editingVocabulary, setEditingVocabulary] = useState<EditingVocabulary | null>(null);
+  const [editingDiscovered, setEditingDiscovered] = useState<EditingDiscovered | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const rawTranscriptRef = useRef<HTMLTextAreaElement | null>(null);
@@ -41,6 +69,7 @@ function App() {
   useEffect(() => {
     getHealth().then(setHealth).catch(() => setStatus("Backend is not reachable yet."));
     getVocabulary().then(setVocabulary).catch(() => undefined);
+    refreshDiscoveredWords();
     refreshCorrections();
   }, []);
 
@@ -78,6 +107,7 @@ function App() {
     const result = await transcribeBrowserText(rawTranscript);
     setNotepad((current) => applyOutput(current, result.transcript, outputMode));
     setStatus(outputMode === "append" ? "Raw transcript appended" : "Notepad replaced with raw transcript");
+    await scanForDiscoveredWords(result.transcript);
   }
 
   async function correctAndSendToNotepad() {
@@ -93,6 +123,7 @@ function App() {
       setLatestCorrected(result.corrected_text);
       setNotepad((current) => applyOutput(current, result.corrected_text, outputMode));
       setStatus(outputMode === "append" ? `Corrected with ${result.correction_engine}` : `Corrected and replaced notepad`);
+      await scanForDiscoveredWords(`${rawTranscript}\n${result.corrected_text}`);
       await refreshCorrections();
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Correction failed");
@@ -107,11 +138,67 @@ function App() {
       return;
     }
 
-    const created = await addVocabulary(newTerm, newNote);
-    setVocabulary((current) => [...current, created].sort((a, b) => a.term.localeCompare(b.term)));
+    await addVocabulary(newTerm, newNote);
+    setVocabulary(await getVocabulary());
+    await refreshDiscoveredWords();
     setNewTerm("");
     setNewNote("");
     setStatus("Vocabulary saved");
+  }
+
+  async function handleAcceptDiscovered(id: number, term?: string, notes = "") {
+    const discovered = discoveredWords.find((item) => item.id === id);
+    const nextTerm = term ?? discovered?.term ?? "";
+    if (!nextTerm.trim()) {
+      return;
+    }
+
+    try {
+      await acceptDiscoveredWord(id, nextTerm, notes);
+      setVocabulary(await getVocabulary());
+      await refreshDiscoveredWords();
+      setEditingDiscovered(null);
+      setStatus("Added to personal dictionary");
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Could not add discovered word");
+    }
+  }
+
+  async function handleDismissDiscovered(id: number) {
+    await dismissDiscoveredWord(id);
+    await refreshDiscoveredWords();
+    setEditingDiscovered((current) => (current?.id === id ? null : current));
+    setStatus("Discovery ignored");
+  }
+
+  function startEditingDiscovered(item: DiscoveredWord) {
+    setEditingDiscovered({ id: item.id, term: item.term, notes: "" });
+  }
+
+  function startEditingVocabulary(item: VocabularyItem) {
+    setEditingVocabulary({ id: item.id, term: item.term, notes: item.notes });
+  }
+
+  async function saveEditingVocabulary() {
+    if (!editingVocabulary?.term.trim()) {
+      return;
+    }
+
+    try {
+      await updateVocabulary(editingVocabulary.id, editingVocabulary.term, editingVocabulary.notes);
+      setVocabulary(await getVocabulary());
+      setEditingVocabulary(null);
+      setStatus("Dictionary term updated");
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Could not update dictionary term");
+    }
+  }
+
+  async function handleDeleteVocabulary(id: number) {
+    await deleteVocabulary(id);
+    setVocabulary(await getVocabulary());
+    setEditingVocabulary(null);
+    setStatus("Dictionary term deleted");
   }
 
   async function copyNotepad() {
@@ -143,6 +230,30 @@ function App() {
       setCorrections(await getCorrections());
     } catch {
       setCorrections([]);
+    }
+  }
+
+  async function refreshDiscoveredWords() {
+    try {
+      setDiscoveredWords(await getDiscoveredWords());
+    } catch {
+      setDiscoveredWords([]);
+    }
+  }
+
+  async function scanForDiscoveredWords(text: string) {
+    if (!text.trim()) {
+      return;
+    }
+
+    try {
+      const discovered = await discoverWords(text);
+      setDiscoveredWords(discovered);
+      if (discovered.length) {
+        setStatus(`${discovered.length} discovered words pending review`);
+      }
+    } catch {
+      // Discovery should never block transcription or correction.
     }
   }
 
@@ -228,6 +339,7 @@ function App() {
       setCapturedSegments((current) => [transcript, ...current].slice(0, 5));
       setMicNotice("Recording uploaded and transcribed.");
       setStatus(`Transcribed with ${result.transcription_engine}`);
+      await scanForDiscoveredWords(transcript);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Audio transcription failed.";
       if (error instanceof ApiError && error.status === 501) {
@@ -430,7 +542,7 @@ function App() {
           <div className="panel compact-panel">
             <div className="panel-header">
               <div>
-                <h2>Vocabulary</h2>
+                <h2>Personal Dictionary</h2>
                 <p>{vocabulary.length} saved terms</p>
               </div>
             </div>
@@ -444,17 +556,107 @@ function App() {
               <input
                 value={newNote}
                 onChange={(event) => setNewNote(event.target.value)}
-                placeholder="Notes"
+                placeholder="Notes, or #stt for transcription boost"
                 aria-label="Vocabulary notes"
               />
               <button className="icon-button" title="Add vocabulary term">
                 <Plus size={18} />
               </button>
             </form>
+            {discoveredWords.length ? (
+              <div className="discovered-list" aria-label="Discovered words">
+                <div className="dictionary-subhead">
+                  <span>Discovered</span>
+                  <span>{discoveredWords.length} pending</span>
+                </div>
+                {discoveredWords.map((item) => (
+                  <div className="discovered-item" key={item.id}>
+                    {editingDiscovered?.id === item.id ? (
+                      <>
+                        <input
+                          value={editingDiscovered.term}
+                          onChange={(event) => setEditingDiscovered((current) => (current ? { ...current, term: event.target.value } : current))}
+                          aria-label="Edit discovered word"
+                        />
+                        <input
+                          value={editingDiscovered.notes}
+                          onChange={(event) => setEditingDiscovered((current) => (current ? { ...current, notes: event.target.value } : current))}
+                          placeholder="Notes, or #stt for transcription boost"
+                          aria-label="Discovered word notes"
+                        />
+                        <div className="mini-actions">
+                          <button
+                            className="icon-button"
+                            onClick={() => handleAcceptDiscovered(item.id, editingDiscovered.term, editingDiscovered.notes)}
+                            title="Add edited word to personal dictionary"
+                          >
+                            <Check size={15} />
+                          </button>
+                          <button className="icon-button" onClick={() => setEditingDiscovered(null)} title="Cancel edit">
+                            <X size={15} />
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <span>{item.term}</span>
+                        <div className="mini-actions">
+                          <button className="icon-button" onClick={() => startEditingDiscovered(item)} title="Edit before adding">
+                            <Pencil size={15} />
+                          </button>
+                          <button className="icon-button" onClick={() => handleAcceptDiscovered(item.id)} title="Add to personal dictionary">
+                            <Check size={15} />
+                          </button>
+                          <button className="icon-button" onClick={() => handleDismissDiscovered(item.id)} title="Ignore discovered word">
+                            <X size={15} />
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : null}
             <div className="term-list">
               {vocabulary.map((item) => (
-                <div className="term-pill" key={item.id} title={item.notes}>
-                  {item.term}
+                <div className="dictionary-item" key={`${item.id}-${item.term}`}>
+                  {editingVocabulary?.id === item.id ? (
+                    <>
+                      <input
+                        value={editingVocabulary.term}
+                        onChange={(event) => setEditingVocabulary((current) => (current ? { ...current, term: event.target.value } : current))}
+                        aria-label="Edit dictionary term"
+                      />
+                      <input
+                        value={editingVocabulary.notes}
+                        onChange={(event) => setEditingVocabulary((current) => (current ? { ...current, notes: event.target.value } : current))}
+                        aria-label="Edit dictionary notes"
+                      />
+                      <div className="dictionary-actions">
+                        <button className="icon-button" onClick={saveEditingVocabulary} title="Save dictionary term">
+                          <Check size={15} />
+                        </button>
+                        <button className="icon-button" onClick={() => setEditingVocabulary(null)} title="Cancel edit">
+                          <X size={15} />
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="dictionary-copy">
+                        <span>{item.term}</span>
+                        {item.notes ? <small>{item.notes}</small> : null}
+                      </div>
+                      <div className="dictionary-actions">
+                        <button className="icon-button" onClick={() => startEditingVocabulary(item)} title="Edit dictionary term">
+                          <Pencil size={15} />
+                        </button>
+                        <button className="icon-button" onClick={() => handleDeleteVocabulary(item.id)} title="Delete dictionary term">
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
+                    </>
+                  )}
                 </div>
               ))}
             </div>
